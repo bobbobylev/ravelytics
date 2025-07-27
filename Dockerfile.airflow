@@ -1,0 +1,10 @@
+# Dockerfile.airflow (корректируем только блок с зависимостями)
+
+FROM apache/airflow:2.9.1-python3.10
+
+USER root
+RUN python3 -m pip install --upgrade pip
+
+USER airflow
+# здесь добавляем confluent-kafka
+RUN pip install --no-cache-dir requests spotipy confluent-kafka
