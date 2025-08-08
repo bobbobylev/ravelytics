@@ -5,6 +5,8 @@ import requests
 from confluent_kafka import Producer
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from spotify_ingest import get_spotify_token
+
 
 # Папки внутри контейнера
 RAW_JSON = '/opt/airflow/data/raw/spotify'
@@ -21,13 +23,12 @@ def produce_to_kafka(message: dict):
     p.flush()
 
 def fetch_and_stream_audio():
-    # найдём самый свежий JSON‑файл
-    files = sorted(
-        [f for f in os.listdir(RAW_JSON) if f.endswith('.json')],
-        reverse=True
-    )
-    if not files:
-        raise FileNotFoundError("Нет JSON-файлов в " + RAW_JSON)
+    # получаем токен один раз
+    token = get_spotify_token()
+    headers = {'Authorization': f'Bearer {token}'}
+
+    # находим самый свежий JSON-файл
+    files = sorted([...], reverse=True)
     latest = files[0]
     with open(os.path.join(RAW_JSON, latest), 'r', encoding='utf-8') as f:
         items = json.load(f)
@@ -35,24 +36,45 @@ def fetch_and_stream_audio():
     for item in items:
         track = item['track']
         track_id = track['id']
+
+        # 1) пытаемся взять preview из плейлиста
         preview_url = track.get('preview_url')
+
+        # 2) если его нет — делаем прямой запрос к треку
         if not preview_url:
+            detail_resp = requests.get(
+                f'https://api.spotify.com/v1/tracks/{track_id}',
+                headers=headers
+            )
+            try:
+                detail_resp.raise_for_status()
+                preview_url = detail_resp.json().get('preview_url')
+                print(f"[ravelytics] Fallback preview_url for {track_id}: {preview_url}")
+            except requests.exceptions.HTTPError as e:
+                print(f"[ravelytics] Cannot fetch track details for {track_id}: {e}")
+                continue  # пропускаем этот трек
+
+        # 3) если после всего нет preview — пропускаем
+        if not preview_url:
+            print(f"[ravelytics] No preview for track {track_id}, skipping")
             continue
 
-        # скачиваем preview
+        # 4) скачиваем и сохраняем MP3
         resp = requests.get(preview_url)
         resp.raise_for_status()
         audio_path = os.path.join(RAW_AUDIO, f"{track_id}.mp3")
         with open(audio_path, 'wb') as af:
             af.write(resp.content)
+        print(f"[ravelytics] Saved preview for {track_id} at {audio_path}")
 
-        # отправляем в Kafka метаданные + локальный путь
+        # 5) отправляем сообщение в Kafka
         msg = {
             'track_id': track_id,
             'audio_path': audio_path,
             'fetched_at': datetime.datetime.utcnow().isoformat()
         }
         produce_to_kafka(msg)
+        print(f"[ravelytics] Produced message for {track_id}")
 
 # Описание DAG
 default_args = {
