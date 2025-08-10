@@ -6,3 +6,7 @@ airflow/logs/
 spark-warehouse/
 # игнорировать автосохранённые ноутбуки Airflow
 airflow/dags/.ipynb_checkpoints/
+
+# ignore Jupyter checkpoints in DAGs
+airflow/dags/.ipynb_checkpoints/
+airflow/dags/__pycache__/
