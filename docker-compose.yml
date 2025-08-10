@@ -21,16 +21,15 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-      - "9092:9092"
-
+      - "9092:9092" 
 
   postgres:
     image: postgres:13
     container_name: airflow-postgres
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -50,8 +49,8 @@ services:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      _AIRFLOW_WWW_USER_USERNAME: admin
-      _AIRFLOW_WWW_USER_PASSWORD: admin
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
     volumes:
       - ./data:/opt/airflow/data
       - ./airflow/dags:/opt/airflow/dags
@@ -90,8 +89,8 @@ services:
       # 1) создаём БД ravelytics
       - CLICKHOUSE_DB=ravelytics
       # 2) заводим пользователя с паролем
-      - CLICKHOUSE_USER=ravelytics_user
-      - CLICKHOUSE_PASSWORD=StrongP@ssw0rd
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       # 3) включаем SQL‑доступ к управлению пользователями
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     ports:

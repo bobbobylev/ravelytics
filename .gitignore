@@ -11,3 +11,6 @@ airflow/dags/.ipynb_checkpoints/
 airflow/dags/.ipynb_checkpoints/
 airflow/dags/__pycache__/
 .env
+
+# env secrets
+.env
