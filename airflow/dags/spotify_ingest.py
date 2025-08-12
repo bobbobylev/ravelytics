@@ -7,6 +7,8 @@ import os
 import json
 import datetime
 import requests
+from airflow.exceptions import AirflowSkipException
+from airflow.models import Variable
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.exceptions import AirflowSkipException
@@ -63,51 +65,60 @@ def get_spotify_token():
 
 def fetch_playlist_tracks():
     """
-    Шаг 2: Скачиваем все треки из плейлиста и сохраняем их в JSON:
-    - Получаем токен авторизации
-    - Обходим все страницы API (пока есть поле "next")
-    - Собираем треки в список all_items
-    - Пишем JSON-файл с именем playlist_<ID>_<date>.json
+    Тянем треки публичного плейлиста и сохраняем items в RAW_JSON_DIR.
+    - playlist_id читаем динамически: Airflow Variable -> .env
+    - 403 (приватный плейлист) -> помечаем таск как SKIPPED, а не FAIL
+    - пагинация по next
     """
-    token = get_spotify_token()
-    headers = {'Authorization': f'Bearer {token}'}
+    playlist_id = Variable.get(
+        "SPOTIFY_PLAYLIST_ID",
+        default_var=os.getenv("SPOTIFY_PLAYLIST_ID", "")
+    )
+    if not playlist_id:
+        raise AirflowSkipException("SPOTIFY_PLAYLIST_ID is empty")
 
-    # Начальный URL с подстановкой ID плейлиста
-    url = SPOTIFY_PLAYLIST_URL.format(playlist_id=PLAYLIST_ID)
-    params = {'limit': 100}  # запрашиваем по 100 треков за раз
-    all_items = []
+    # путь для сохранения
+    raw_dir = os.getenv("RAW_JSON_DIR", "/opt/airflow/data/raw/spotify")
+    os.makedirs(raw_dir, exist_ok=True)
 
-    # Цикл обработки пагинации
-    while url:
-        resp = requests.get(url, headers=headers, params=params)
-        # Если плейлист не найден (HTTP 404) — пропускаем весь DAG run
-        if resp.status_code == 404:
-            print(f"[ravelytics] Playlist {PLAYLIST_ID} not found (404). Skipping run.")
-            raise AirflowSkipException(f"Playlist {PLAYLIST_ID} not found")
-        # Проверяем на другие HTTP-ошибки
-        try:
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            print(f"[ravelytics] HTTP error: {e}")
-            raise
+    # токен и заголовки
+    token = get_spotify_token()  # твоя функция получения client-credentials токена
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # сбор всех items с пагинацией
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+    params = {"limit": 100}
+    items = []
+
+    while True:
+        resp = requests.get(url, headers=headers, params=params, timeout=20)
+        if resp.status_code == 403:
+            # плейлист приватный/недоступен для client-credentials
+            raise AirflowSkipException(f"Playlist {playlist_id} is private/inaccessible (403)")
+        resp.raise_for_status()
 
         data = resp.json()
-        items = data.get('items', [])
-        print(f"[ravelytics] Fetched {len(items)} items; next={data.get('next')}")
-        all_items.extend(items)
-        # Переходим к следующей странице
-        url = data.get('next')
+        batch = data.get("items", [])
+        items.extend(batch)
 
-    # После сбора всех треков формируем имя файла с текущей датой
-    today = datetime.datetime.utcnow().strftime('%Y-%m-%d')
-    filename = f"playlist_{PLAYLIST_ID}_{today}.json"
-    out_path = os.path.join(RAW_PATH, filename)
-    print(f"[ravelytics] Writing {len(all_items)} items to {out_path}")
+        next_url = data.get("next")
+        if not next_url:
+            break
+        # next уже содержит query-параметры, поэтому дальше идём без params
+        url = next_url
+        params = {}
 
-    # Запись списка треков в JSON-файл
-    with open(out_path, 'w', encoding='utf-8') as f:
-        json.dump(all_items, f, ensure_ascii=False, indent=2)
-    print("[ravelytics] Successfully wrote JSON file")
+    if not items:
+        raise AirflowSkipException("Playlist returned no items")
+
+    # сохраняем в файл
+    ts = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    out_path = os.path.join(raw_dir, f"playlist_{playlist_id}_{ts}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False)
+
+    print(f"[ravelytics] Saved {len(items)} items -> {out_path}")
+
 
 
 # ------------------- Описание DAG -------------------
