@@ -14,3 +14,7 @@ airflow/dags/__pycache__/
 
 # env secrets
 .env
+
+airflow/dags/.ipynb_checkpoints/
+airflow/dags/__pycache__/
+airflow/dags/.airflowignore
