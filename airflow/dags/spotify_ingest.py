@@ -62,6 +62,20 @@ def get_spotify_token():
     print(f"[ravelytics] Obtained token (len={len(token)})")
     return token
 
+def preflight_check():
+    playlist_id = Variable.get("SPOTIFY_PLAYLIST_ID", default_var=os.getenv("SPOTIFY_PLAYLIST_ID", ""))
+    if not playlist_id:
+        raise AirflowSkipException("SPOTIFY_PLAYLIST_ID is empty")
+
+    token = get_spotify_token()  # твоя функция получения токена
+    headers = {"Authorization": f"Bearer {token}"}
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+    r = requests.get(url, headers=headers, params={"limit": 1}, timeout=20)
+
+    if r.status_code in (403, 404):
+        # мягко выходим — даг помечается как SKIPPED
+        raise AirflowSkipException(f"Playlist {playlist_id} not accessible ({r.status_code})")
+    r.raise_for_status()
 
 def fetch_playlist_tracks():
     """
@@ -139,8 +153,6 @@ with DAG(
     tags=['ravelytics', 'spotify'],
 ) as dag:
 
-    # Оператор PythonOperator вызывает нашу функцию fetch_playlist_tracks
-    task_fetch = PythonOperator(
-        task_id='fetch_playlist_tracks',
-        python_callable=fetch_playlist_tracks,
-    )
+    preflight = PythonOperator(task_id="preflight_check", python_callable=preflight_check)
+    fetch    = PythonOperator(task_id="fetch_playlist_tracks", python_callable=fetch_playlist_tracks)
+    preflight >> fetch
