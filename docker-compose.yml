@@ -99,6 +99,28 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
 
+  superset:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    container_name: superset
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - clickhouse
+    env_file:
+      - .env
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+    volumes:
+      - ./superset:/app/pythonpath
+      - superset_home:/app/superset_home
+    ports:
+      - "8088:8088"
+
 volumes:
   clickhouse_data:
   postgres_data:
+  superset_home:
+
