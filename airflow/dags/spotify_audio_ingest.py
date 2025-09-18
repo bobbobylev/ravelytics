@@ -11,7 +11,6 @@ from spotify_ingest import get_spotify_token
 # Папки внутри контейнера
 RAW_JSON = '/opt/airflow/data/raw/spotify'
 RAW_AUDIO = '/opt/airflow/data/raw/spotify/audio'
-os.makedirs(RAW_AUDIO, exist_ok=True)
 
 # Параметры
 BROKER = os.getenv('KAFKA_BROKER')  # из .env, например "kafka:9092"

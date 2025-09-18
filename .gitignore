@@ -18,3 +18,9 @@ airflow/dags/__pycache__/
 airflow/dags/.ipynb_checkpoints/
 airflow/dags/__pycache__/
 airflow/dags/.airflowignore
+.env
+.env.*
+*.env
+*.key
+__pycache__/
+.DS_Store
