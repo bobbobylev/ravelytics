@@ -1,26 +1,30 @@
-__pycache__/
+# env & secrets
 .env
-*.pyc
-data/
-airflow/logs/
-spark-warehouse/
-# игнорировать автосохранённые ноутбуки Airflow
-airflow/dags/.ipynb_checkpoints/
-
-# ignore Jupyter checkpoints in DAGs
-airflow/dags/.ipynb_checkpoints/
-airflow/dags/__pycache__/
-.env
-
-# env secrets
-.env
-
-airflow/dags/.ipynb_checkpoints/
-airflow/dags/__pycache__/
-airflow/dags/.airflowignore
-.env
-.env.*
 *.env
-*.key
+.env.*.local
+.envrc
+
+# airflow
+logs/
+*/logs/
+**/logs/
+data/
+*/data/
 __pycache__/
+*.pyc
+
+# venv & IDE
+.venv/
+venv/
+.idea/
+.vscode/
 .DS_Store
+.ipynb_checkpoints/
+
+# build
+dist/
+build/
+
+# clickhouse / postgres named volumes (на всякий)
+pg_data/
+ch_data/
