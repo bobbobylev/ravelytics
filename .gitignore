@@ -28,3 +28,6 @@ build/
 # clickhouse / postgres named volumes (на всякий)
 pg_data/
 ch_data/
+
+# Jupyter
+.ipynb_checkpoints/
