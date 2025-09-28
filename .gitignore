@@ -24,3 +24,25 @@ airflow/dags/.airflowignore
 *.key
 __pycache__/
 .DS_Store
+
+# Local env & secrets
+.env
+
+# Docker volumes / data / logs
+logs/
+data/
+postgres_data/
+clickhouse_data/
+kafka_data/
+zookeeper_data/
+superset_home/
+
+# Python junk
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
